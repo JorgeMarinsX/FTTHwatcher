@@ -1,4 +1,4 @@
-# 📡 FFTH Watcher
+# 📡 FTTH Watcher
 
 > Pipeline ETL para ingestão dos dados públicos de **Banda Larga Fixa** da ANATEL no PostgreSQL.
 
@@ -6,7 +6,7 @@
 
 ## 📋 Visão Geral
 
-O **FFTH Watcher** processa os arquivos CSV disponibilizados pela ANATEL com dados históricos de acessos de banda larga fixa no Brasil (2007–presente), normalizando dois formatos distintos de arquivo e carregando tudo em um banco PostgreSQL estruturado e consultável.
+O **FTTH Watcher** processa os arquivos CSV disponibilizados pela ANATEL com dados históricos de acessos de banda larga fixa no Brasil (2007–presente), normalizando dois formatos distintos de arquivo e carregando tudo em um banco PostgreSQL estruturado e consultável.
 
 Os dados cobrem **todas as prestadoras cadastradas**, por município, UF, tecnologia, faixa de velocidade e período — permitindo análises históricas granulares do mercado de telecomunicações brasileiro.
 
