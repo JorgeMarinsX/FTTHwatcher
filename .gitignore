@@ -1,0 +1,7 @@
+raw/
+*.md
+!README.md
+*.log
+portainer-docker-compose.yml
+portainer-docker-compose.prod.yml
+.env

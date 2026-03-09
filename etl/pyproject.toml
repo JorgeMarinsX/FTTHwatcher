@@ -1,0 +1,10 @@
+[project]
+name = "ftthwatcher-etl"
+version = "0.1.0"
+description = "ANATEL ETL pipeline"
+requires-python = ">=3.12"
+dependencies = [
+    "psycopg[binary]>=3.2",
+    "polars>=1.0",
+    "tqdm>=4.66",
+]

@@ -1,0 +1,60 @@
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: anatel_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-anatel}
+      POSTGRES_USER: ${POSTGRES_USER:-anatel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-anatel} -d ${POSTGRES_DB:-anatel}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - anatel_net
+
+  etl:
+    build:
+      context: ./etl
+      dockerfile_inline: |
+        FROM python:3.12-slim
+        COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+        WORKDIR /app
+        ENV UV_COMPILE_BYTECODE=1
+        ENV UV_LINK_MODE=copy
+        ENV UV_PROJECT_ENVIRONMENT=/venv
+        COPY pyproject.toml ./
+        RUN uv sync --no-dev --no-install-project
+        CMD ["/venv/bin/python", "main.py"]
+    container_name: anatel_etl
+    restart: no
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-anatel}
+      POSTGRES_USER: ${POSTGRES_USER:-anatel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      RAW_DATA_DIR: /data/raw/acessos_banda_larga_fixa
+    volumes:
+      - ./raw:/data/raw:ro
+      - ./etl:/app:ro
+    networks:
+      - anatel_net
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  anatel_net:
+    driver: bridge
