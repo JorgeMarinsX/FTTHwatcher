@@ -53,6 +53,39 @@ services:
     networks:
       - anatel_net
 
+  backend:
+    build:
+      context: ./backend
+      dockerfile_inline: |
+        FROM python:3.12-slim
+        COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+        WORKDIR /app
+        ENV UV_COMPILE_BYTECODE=1
+        ENV UV_LINK_MODE=copy
+        ENV UV_PROJECT_ENVIRONMENT=/venv
+        COPY pyproject.toml ./
+        RUN uv sync --no-dev --no-install-project
+        CMD ["/venv/bin/python", "manage.py", "runserver", "0.0.0.0:8000"]
+    container_name: anatel_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-anatel}
+      POSTGRES_USER: ${POSTGRES_USER:-anatel}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      DJANGO_DEBUG: "true"
+      TZ: America/Sao_Paulo
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app:ro
+    networks:
+      - anatel_net
+
 volumes:
   postgres_data:
     driver: local
