@@ -5,3 +5,7 @@ raw/
 portainer-docker-compose.yml
 portainer-docker-compose.prod.yml
 .env
+app/.nuxt/
+node_modules/
+app/node_modules/
+app/bun.lock
