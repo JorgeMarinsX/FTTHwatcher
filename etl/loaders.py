@@ -1,5 +1,5 @@
 """
-FTTH Watcher — File-level loaders for each data source
+FTTH Watcher — Carregadores por arquivo para cada fonte de dados
 """
 
 import logging
@@ -17,9 +17,9 @@ log = logging.getLogger(__name__)
 
 def discover_access_files(raw: Path) -> list[Path]:
     """
-    Return all access data files under raw/ in deterministic load order:
-    main files (sorted by name) followed by _Colunas files (sorted by name).
-    The Total file is excluded — it is loaded separately via load_totais.
+    Retorna todos os arquivos de dados de acesso em raw/ em ordem de carga determinística:
+    arquivos principais (ordenados por nome) seguidos dos arquivos _Colunas (ordenados por nome).
+    O arquivo Total é excluído — é carregado separadamente via load_totais.
     """
     all_files     = sorted(raw.glob("Acessos_Banda_Larga_Fixa_*.csv"))
     main_files    = [f for f in all_files if "_Colunas" not in f.name and "_Total" not in f.name]
@@ -29,18 +29,18 @@ def discover_access_files(raw: Path) -> list[Path]:
 
 def load_access_file(conn, path: Path, position: int = 1) -> None:
     """
-    Auto-detect long vs wide format, process in batches, stream into acessos.
-    Skips the file if it hasn't changed since the last successful load.
-    position — tqdm nesting position for the inner progress bar (default 1).
+    Detecta automaticamente o formato longo ou largo, processa em lotes e transmite para acessos.
+    Ignora o arquivo se não houve alteração desde o último carregamento bem-sucedido.
+    position — posição de aninhamento do tqdm para a barra de progresso interna (padrão 1).
     """
     if is_file_current(conn, path):
-        log.info("%s — unchanged, skipping.", path.name)
+        log.info("%s — sem alterações, ignorando.", path.name)
         return
 
     fonte      = path.name
     total_staged = total_inserted = 0
 
-    # Peek at the header to choose format and batch size
+    # Lê o cabeçalho para determinar o formato e o tamanho do lote
     with path.open(encoding="utf-8-sig") as f:
         raw_header = f.readline().rstrip("\n")
     headers   = [h.lstrip("\ufeff") for h in raw_header.split(";")]
@@ -48,12 +48,12 @@ def load_access_file(conn, path: Path, position: int = 1) -> None:
     is_wide   = bool(date_cols)
     batch_size = WIDE_BATCH if is_wide else LONG_BATCH
 
-    log.info("%s — format=%s  size=%.1f MB",
-             fonte, "wide" if is_wide else "long", path.stat().st_size / 1_048_576)
+    log.info("%s — formato=%s  tamanho=%.1f MB",
+             fonte, "largo" if is_wide else "longo", path.stat().st_size / 1_048_576)
 
     with tqdm(
         desc=fonte,
-        unit=" rows",
+        unit=" linhas",
         unit_scale=True,
         dynamic_ncols=True,
         position=position,
@@ -70,7 +70,7 @@ def load_access_file(conn, path: Path, position: int = 1) -> None:
             total_inserted   += inserted
             bar.update(staged)
 
-    log.info("%s — done. staged=%d  inserted=%d  discarded=%d",
+    log.info("%s — concluído. staged=%d  inseridos=%d  descartados=%d",
              fonte, total_staged, total_inserted, total_staged - total_inserted)
 
     record_file_load(conn, path, total_inserted)
@@ -78,7 +78,7 @@ def load_access_file(conn, path: Path, position: int = 1) -> None:
 
 def load_totais(conn, path: Path) -> None:
     if is_file_current(conn, path):
-        log.info("totais — unchanged, skipping.")
+        log.info("totais — sem alterações, ignorando.")
         return
 
     df = pl.read_csv(path, separator=";", encoding="utf8", infer_schema_length=0)
@@ -97,16 +97,16 @@ def load_totais(conn, path: Path) -> None:
             rows,
         )
     conn.commit()
-    log.info("totais — %d rows loaded.", len(rows))
+    log.info("totais — %d linhas carregadas.", len(rows))
     record_file_load(conn, path, len(rows))
 
 
 def load_densidades(conn, path: Path) -> None:
     if is_file_current(conn, path):
-        log.info("densidades — unchanged, skipping.")
+        log.info("densidades — sem alterações, ignorando.")
         return
 
-    # Header: Ano;Mês;UF;Município;Código IBGE;Densidade;Nível Geográfico Densidade
+    # Cabeçalho: Ano;Mês;UF;Município;Código IBGE;Densidade;Nível Geográfico Densidade
     df = pl.read_csv(path, separator=";", encoding="utf8", infer_schema_length=0)
     df = _strip_bom(df)
     df = df.rename({
@@ -140,5 +140,5 @@ def load_densidades(conn, path: Path) -> None:
             for row in df.iter_rows():
                 copy.write_row(row)
     conn.commit()
-    log.info("densidades — %d rows loaded.", len(df))
+    log.info("densidades — %d linhas carregadas.", len(df))
     record_file_load(conn, path, len(df))

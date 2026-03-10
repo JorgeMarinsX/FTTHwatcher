@@ -1,5 +1,5 @@
 """
-FTTH Watcher — polars helpers and format-specific transformations
+FTTH Watcher — utilitários polars e transformações específicas por formato
 """
 
 from pathlib import Path
@@ -18,9 +18,9 @@ def _strip_bom(df: pl.DataFrame) -> pl.DataFrame:
 
 def read_batched(path: Path, batch_size: int):
     """
-    Yield polars DataFrames of up to batch_size rows.
-    All columns read as strings (infer_schema_length=0) for safety —
-    CNPJ and IBGE codes would be corrupted by integer inference.
+    Gera DataFrames polars com até batch_size linhas.
+    Todas as colunas são lidas como strings (infer_schema_length=0) por segurança —
+    códigos de CNPJ e IBGE seriam corrompidos pela inferência de inteiros.
     """
     reader = pl.read_csv_batched(
         path,
@@ -43,7 +43,7 @@ def read_batched(path: Path, batch_size: int):
 
 
 def _ensure_cols(df: pl.DataFrame, cols: dict[str, pl.DataType]) -> pl.DataFrame:
-    """Add columns as null if not present (handles format differences)."""
+    """Adiciona colunas como nulas se não estiverem presentes (trata diferenças de formato)."""
     for name, dtype in cols.items():
         if name not in df.columns:
             df = df.with_columns(pl.lit(None, dtype=dtype).alias(name))
@@ -52,8 +52,8 @@ def _ensure_cols(df: pl.DataFrame, cols: dict[str, pl.DataType]) -> pl.DataFrame
 
 def _finalize(df: pl.DataFrame, fonte: str) -> pl.DataFrame:
     """
-    Apply all type casts and normalizations after renaming.
-    Expects internal column names (post-RENAME).
+    Aplica todos os casts de tipo e normalizações após a renomeação.
+    Espera nomes internos de colunas (pós-RENAME).
     """
     df = _ensure_cols(df, {
         "grupo_economico":  pl.Utf8,
@@ -72,19 +72,19 @@ def _finalize(df: pl.DataFrame, fonte: str) -> pl.DataFrame:
         pl.col("mes").cast(pl.Int16),
         pl.col("acessos_s").cast(pl.Int32, strict=False).alias("acessos"),
 
-        # IBGE: cast to int, null if not a valid number
+        # IBGE: converte para int, nulo se não for um número válido
         pl.col("ibge_s").str.strip_chars().cast(pl.Int32, strict=False).alias("ibge"),
 
-        # Velocidade: decimal comma → decimal point
+        # Velocidade: vírgula decimal → ponto decimal
         pl.col("velocidade_s")
           .str.replace(",", ".", literal=True)
           .cast(pl.Float64, strict=False)
           .alias("velocidade_mbps"),
 
-        # CNPJ: strip all non-digits
+        # CNPJ: remove todos os não-dígitos
         pl.col("cnpj").str.replace_all(r"\D", "", literal=False),
 
-        # Empty string → null for optional text columns
+        # String vazia → nulo para colunas de texto opcionais
         pl.col("grupo_economico").replace("", None),
         pl.col("porte").replace("", None),
         pl.col("faixa_velocidade").replace("", None),
@@ -96,7 +96,7 @@ def _finalize(df: pl.DataFrame, fonte: str) -> pl.DataFrame:
         pl.lit(fonte).alias("fonte"),
     ])
 
-    # Drop rows missing required fields
+    # Remove linhas com campos obrigatórios ausentes
     df = df.filter(
         pl.col("empresa").is_not_null() & pl.col("empresa").ne("") &
         pl.col("uf").is_not_null()       & pl.col("uf").ne("") &
@@ -109,7 +109,7 @@ def _finalize(df: pl.DataFrame, fonte: str) -> pl.DataFrame:
 
 
 def transform_long(df: pl.DataFrame, fonte: str) -> pl.DataFrame:
-    """Long-format batch: rename headers, finalize."""
+    """Lote no formato longo: renomeia cabeçalhos e finaliza."""
     rename = {k: v for k, v in RENAME.items() if k in df.columns}
     df = df.rename(rename)
     return _finalize(df, fonte)
@@ -117,9 +117,9 @@ def transform_long(df: pl.DataFrame, fonte: str) -> pl.DataFrame:
 
 def transform_wide(df: pl.DataFrame, date_cols: list[str], fonte: str) -> pl.DataFrame:
     """
-    Wide/pivoted batch: unpivot date columns then finalize.
-    Each input row expands to up to len(date_cols) output rows.
-    Nulls and zeros are dropped (sparse data by design).
+    Lote no formato largo/pivotado: desagrega colunas de data e finaliza.
+    Cada linha de entrada se expande para até len(date_cols) linhas de saída.
+    Nulos e zeros são descartados (dados esparsos por design).
     """
     fixed = [c for c in df.columns if c not in date_cols]
 
@@ -130,7 +130,7 @@ def transform_wide(df: pl.DataFrame, date_cols: list[str], fonte: str) -> pl.Dat
         value_name="acessos_s",
     )
 
-    # Drop null/empty/zero access values (wide files are sparse)
+    # Descarta valores de acesso nulos/vazios/zero (arquivos largos são esparsos)
     df = df.filter(
         pl.col("acessos_s").is_not_null() &
         pl.col("acessos_s").ne("") &
@@ -140,7 +140,7 @@ def transform_wide(df: pl.DataFrame, date_cols: list[str], fonte: str) -> pl.Dat
     if df.is_empty():
         return df
 
-    # Extract ano/mes from the period column header (e.g. "2007-03")
+    # Extrai ano/mes do cabeçalho da coluna de período (ex.: "2007-03")
     df = df.with_columns([
         pl.col("periodo").str.slice(0, 4).cast(pl.Int16).alias("ano"),
         pl.col("periodo").str.slice(5, 2).cast(pl.Int16).alias("mes"),

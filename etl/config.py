@@ -1,18 +1,27 @@
 """
-FTTH Watcher — Configuration
+FTTH Watcher — Configuração
 
-Environment variables, connection settings, and pipeline constants.
+Variáveis de ambiente, configurações de conexão e constantes do pipeline.
 """
 
 import logging
 import os
 import re
+import time
 from pathlib import Path
 
 RAW = Path(os.getenv("RAW_DATA_DIR", "/data/raw/acessos_banda_larga_fixa"))
 
-# TCP keepalives prevent the connection from being silently dropped by the
-# network or a firewall during multi-hour ETL runs.
+ANATEL_ZIP_URL = os.getenv(
+    "ANATEL_ZIP_URL",
+    "https://www.anatel.gov.br/dadosabertos/paineis_de_dados/acessos/acessos_banda_larga_fixa.zip",
+)
+
+# Define como "false" para pular o download automático (útil quando os arquivos já estão montados).
+DOWNLOAD_ENABLED = os.getenv("DOWNLOAD_DATA", "true").strip().lower() not in ("false", "0", "no")
+
+# TCP keepalives evitam que a conexão seja encerrada silenciosamente pela
+# rede ou firewall durante execuções do ETL de várias horas.
 DSN = " ".join([
     f"host={os.getenv('POSTGRES_HOST', 'localhost')}",
     f"port={os.getenv('POSTGRES_PORT', '5432')}",
@@ -25,16 +34,17 @@ DSN = " ".join([
     "keepalives_count=5",
 ])
 
-# Long-format files: each row stays one row.
-# Wide-format files: each row expands to N rows (one per date column).
-# Keep wide batches smaller so post-unpivot size stays reasonable.
+# Arquivos no formato longo: cada linha permanece como uma linha.
+# Arquivos no formato largo: cada linha se expande para N linhas (uma por coluna de data).
+# Lotes do formato largo são menores para que o tamanho após o unpivot fique razoável.
 LONG_BATCH = 100_000
 WIDE_BATCH =  10_000
 
-# Seconds between connection attempts on startup (postgres may not be ready yet).
+# Segundos entre tentativas de conexão na inicialização (postgres pode não estar pronto ainda).
 CONNECT_RETRY_DELAY = 5
-CONNECT_MAX_RETRIES = 12  # up to 1 minute of waiting
+CONNECT_MAX_RETRIES = 12  # até 1 minuto de espera
 
+logging.Formatter.converter = time.localtime  # usa horário local em vez de UTC
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s  %(levelname)-8s  %(message)s",

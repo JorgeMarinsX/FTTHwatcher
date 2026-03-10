@@ -1,5 +1,5 @@
 """
-FTTH Watcher — Database connection and staging operations
+FTTH Watcher — Conexão com o banco de dados e operações de staging
 """
 
 import logging
@@ -17,8 +17,8 @@ log = logging.getLogger(__name__)
 
 def connect_with_retry() -> psycopg.Connection:
     """
-    Connect to PostgreSQL, retrying on failure.
-    Handles the Docker startup race where postgres isn't ready yet.
+    Conecta ao PostgreSQL, repetindo em caso de falha.
+    Trata a condição de corrida na inicialização do Docker quando o postgres ainda não está pronto.
     """
     for attempt in range(1, CONNECT_MAX_RETRIES + 1):
         try:
@@ -27,14 +27,14 @@ def connect_with_retry() -> psycopg.Connection:
             if attempt == CONNECT_MAX_RETRIES:
                 raise
             log.warning(
-                "Connection attempt %d/%d failed: %s — retrying in %ds...",
+                "Tentativa de conexão %d/%d falhou: %s — tentando novamente em %ds...",
                 attempt, CONNECT_MAX_RETRIES, exc, CONNECT_RETRY_DELAY,
             )
             time.sleep(CONNECT_RETRY_DELAY)
 
 
 def is_file_current(conn, path: Path) -> bool:
-    """Return True if path has already been loaded with its current mtime."""
+    """Retorna True se o arquivo já foi carregado com o mtime atual."""
     mtime = path.stat().st_mtime
     with conn.cursor() as cur:
         cur.execute(
@@ -45,7 +45,7 @@ def is_file_current(conn, path: Path) -> bool:
 
 
 def record_file_load(conn, path: Path, rows_inserted: int) -> None:
-    """Upsert a record in etl_files after a successful load."""
+    """Registra (upsert) em etl_files após um carregamento bem-sucedido."""
     mtime = path.stat().st_mtime
     with conn.cursor() as cur:
         cur.execute(
@@ -63,18 +63,25 @@ def record_file_load(conn, path: Path, rows_inserted: int) -> None:
 
 
 def _copy_to_staging(cur, df: pl.DataFrame) -> int:
-    """Stream a polars DataFrame into _staging via COPY. Returns row count."""
+    """
+    Carrega em massa um DataFrame polars em _staging via COPY CSV.
+
+    polars.write_csv() serializa o lote inteiro em Rust de uma vez,
+    eliminando o loop Python de 100k iterações que era o principal gargalo.
+    Uma única chamada copy.write() envia todo o buffer ao PostgreSQL.
+
+    Tratamento de NULL: _finalize() já substitui todas as strings vazias por None,
+    então null_value="" é seguro — qualquer campo vazio na saída é um NULL genuíno.
+    """
     cols = ", ".join(ACESSOS_COLS)
-    n = 0
-    with cur.copy(f"COPY _staging ({cols}) FROM STDIN") as copy:
-        for row in df.iter_rows():
-            copy.write_row(row)
-            n += 1
-    return n
+    csv_data = df.write_csv(separator=",", null_value="", include_header=False)
+    with cur.copy(f"COPY _staging ({cols}) FROM STDIN (FORMAT CSV, NULL '')") as copy:
+        copy.write(csv_data)
+    return len(df)
 
 
 def _flush_staging(cur) -> int:
-    """INSERT _staging → acessos ON CONFLICT DO NOTHING. Returns inserted count."""
+    """INSERT _staging → acessos ON CONFLICT DO NOTHING. Retorna a contagem de linhas inseridas."""
     cols = ", ".join(ACESSOS_COLS)
     cur.execute(f"""
         WITH ins AS (
@@ -89,7 +96,7 @@ def _flush_staging(cur) -> int:
 
 
 def load_batch(conn, df: pl.DataFrame) -> tuple[int, int]:
-    """TRUNCATE staging → COPY batch → INSERT → commit. Returns (staged, inserted)."""
+    """TRUNCATE staging → COPY batch → INSERT → commit. Retorna (staged, inserted)."""
     with conn.cursor() as cur:
         cur.execute("TRUNCATE _staging")
         staged = _copy_to_staging(cur, df)

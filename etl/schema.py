@@ -1,5 +1,5 @@
 """
-FTTH Watcher — DDL and column mappings
+FTTH Watcher — DDL e mapeamentos de colunas
 """
 
 DDL_ETL_FILES = """
@@ -33,10 +33,10 @@ CREATE TABLE IF NOT EXISTS acessos (
     fonte            TEXT
 );
 
--- Widen velocidade_mbps if it was created with the old NUMERIC(12,6) precision.
+-- Amplia velocidade_mbps se foi criada com a precisão antiga NUMERIC(12,6).
 ALTER TABLE acessos ALTER COLUMN velocidade_mbps TYPE NUMERIC(18,6);
 
--- COALESCE in the index expression handles NULLs so every row participates.
+-- COALESCE na expressão do índice trata NULLs para que todas as linhas participem.
 CREATE UNIQUE INDEX IF NOT EXISTS acessos_uq ON acessos (
     ano, mes, cnpj,
     COALESCE(ibge, 0),
@@ -68,7 +68,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS densidades_uq ON densidades (
 );
 """
 
-# UNLOGGED: no WAL overhead for staging writes — fine for an ETL scratch table.
+# UNLOGGED: sem overhead de WAL nas escritas de staging — adequado para uma tabela temporária de ETL.
 DDL_STAGING = """
 DROP TABLE IF EXISTS _staging;
 CREATE UNLOGGED TABLE _staging (
@@ -107,8 +107,8 @@ ACESSOS_COLS = [
     "acessos", "fonte",
 ]
 
-# CSV header → internal name. Covers both long and wide variants.
-# Only present columns are renamed.
+# Cabeçalho CSV → nome interno. Cobre variantes long e wide.
+# Apenas as colunas presentes são renomeadas.
 RENAME = {
     "Ano":                    "ano",
     "Mês":                    "mes",
