@@ -1,0 +1,23 @@
+{
+  "name": "ffthwatcher-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev --host 0.0.0.0",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@iconify-json/heroicons": "^1.2.0",
+    "@nuxt/ui": "4.5.1",
+    "echarts": "^5.6.0",
+    "nuxt": "4.3.1",
+    "vue": "^3.5.0",
+    "vue-echarts": "^7.0.3"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.2"
+  }
+}

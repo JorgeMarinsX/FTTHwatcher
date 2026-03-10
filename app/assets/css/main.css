@@ -1,0 +1,25 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@theme {
+  --color-ftthwatcher-50: var(--color-slate-50);
+  --color-ftthwatcher-100: var(--color-slate-100);
+  --color-ftthwatcher-200: var(--color-slate-200);
+  --color-ftthwatcher-300: var(--color-slate-300);
+  --color-ftthwatcher-400: var(--color-slate-400);
+  --color-ftthwatcher-500: var(--color-slate-500);
+  --color-ftthwatcher-600: var(--color-slate-600);
+  --color-ftthwatcher-700: var(--color-slate-700);
+  --color-ftthwatcher-800: var(--color-slate-800);
+  --color-ftthwatcher-900: var(--color-slate-900);
+  --color-ftthwatcher-950: var(--color-slate-950);
+}
+
+:root {
+  --ui-primary: var(--color-ftthwatcher-500);
+}
+
+.dark {
+  --ui-primary: var(--color-ftthwatcher-400);
+}
+

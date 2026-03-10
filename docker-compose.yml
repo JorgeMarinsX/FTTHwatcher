@@ -86,6 +86,28 @@ services:
     networks:
       - anatel_net
 
+  frontend:
+    build:
+      context: ./app
+      dockerfile_inline: |
+        FROM oven/bun:1-alpine
+        WORKDIR /app
+        COPY package.json ./
+        RUN bun install
+        CMD ["sh", "-c", "bun install && bun run dev"]
+    container_name: anatel_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./app:/app
+      - /app/node_modules
+      - /app/.nuxt
+    networks:
+      - anatel_net
+
 volumes:
   postgres_data:
     driver: local
